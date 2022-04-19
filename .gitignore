@@ -1,0 +1,6 @@
+.idea/
+config.yaml
+chromedriver.exe
+chromedriver
+*.png
+target/
