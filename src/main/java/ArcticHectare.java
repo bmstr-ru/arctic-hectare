@@ -23,15 +23,13 @@ import java.util.stream.IntStream;
 @Slf4j
 public class ArcticHectare {
 
-    public static void main(String[] args) throws Exception {
-        while (true) {
-            try {
-                new ArcticHectare().operate();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            Thread.sleep(60_000 * 60);
+    public static void main(String[] args) {
+        try {
+            new ArcticHectare().operate();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        System.exit(0);
     }
 
     private static final String SCREENSHOT_FILENAME = "screenshot.png";
