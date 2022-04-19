@@ -106,7 +106,7 @@ public class ArcticHectare {
             log.info("Zoom 15 times");
             WebElement element = driver.findElement(By.className("zoom-control__zoom-in"));
             IntStream.range(0, 15).forEach(i -> {
-                sleep(1);
+                sleep(60);
                 element.click();
             });
 
