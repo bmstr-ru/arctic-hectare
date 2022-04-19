@@ -65,10 +65,14 @@ public class ArcticHectare {
 //        telegram.debug("Job started");
 
         try {
+            log.info("Open main page");
             driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/login");
+            log.info("Maximize window");
             driver.manage().window().maximize();
+            log.info("Enter credentials");
             waitAndClick(By.id("login")).sendKeys(gosuslugi.username);
             waitAndClick(By.id("password")).sendKeys(gosuslugi.password);
+            log.info("Click login");
             waitAndClick(By.id("loginByPwdButton"));
 
             if (!handleGosuslugiSuspection()) {
@@ -79,36 +83,48 @@ public class ArcticHectare {
 
             wait(By.className("cabinet__icon-myprofile-svg"));
 
+            log.info("Open arctic map");
             driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/arctic-map");
 
+            log.info("Enter coordinates");
             waitAndClick(By.className("coordinate-finder-control__coordinate-finder-control"));
 
             wait(By.className("coordinate-finder-control__coords"));
             List<WebElement> coords = driver.findElements(By.className("coordinate-finder-control__coords"));
+
+            log.info("...latitude");
             coords.get(0).click();
             coords.get(0).findElement(By.tagName("input")).sendKeys(coordinates.latitude);
+            log.info("...longtitude");
             coords.get(1).click();
             coords.get(1).findElement(By.tagName("input")).sendKeys(coordinates.longtitude);
 
             sleep(1);
+            log.info("Close coordinates window");
             waitAndClick(By.className("coordinate-finder-control__confirm"));
             sleep(5);
             waitAndClick(By.className("shared__btn-close"));
             sleep(1);
+            log.info("Zoom 15 times");
             WebElement element = driver.findElement(By.className("zoom-control__zoom-in"));
             IntStream.range(0, 15).forEach(i -> {
                 sleep(1);
                 element.click();
             });
 
-            sleep(10);
+            log.info("Sleeping a minute");
+            sleep(60);
 
+            log.info("Click on element");
             actions.moveToElement(driver.findElement(By.className("ol-layer")))
                     .click()
                     .perform();
             sleep(10);
 
+            log.info("Taking screenshot");
             File file = driver.getScreenshotAs(OutputType.FILE);
+
+            log.info("Wrap up");
             driver.close();
             driver.quit();
 
@@ -127,6 +143,7 @@ public class ArcticHectare {
             }
 //            telegram.debug("Job finished");
         } catch (Exception e) {
+            log.warn("Error", e);
             telegram.debug("Error: " + e.getMessage());
             File file = driver.getScreenshotAs(OutputType.FILE);
             if (file.renameTo(exceptionFile)) {
@@ -147,6 +164,7 @@ public class ArcticHectare {
     }
 
     private boolean handleGosuslugiSuspection() {
+        log.info("Handle gosuslugi suspection");
         waitPageLoaded();
         try {
             String question = driver.findElement(By.id("question")).getText();
