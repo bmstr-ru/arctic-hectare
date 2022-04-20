@@ -23,12 +23,16 @@ public class Telegram {
     }
 
     private void sendPhoto(File file, Long chatId) throws IOException {
+        HttpUrl.Builder httpBuilder = HttpUrl.parse("https://api.telegram.org/bot" + cfg.token + "/sendPhoto").newBuilder();
+        httpBuilder.addQueryParameter("chat_id", cfg.debugChatId.toString());
+        httpBuilder.addQueryParameter("caption", file.getName());
+
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("photo", file.getName(), RequestBody.create(Files.readAllBytes(file.toPath())))
                 .build();
         Request request = new Request.Builder()
-                .url("https://api.telegram.org/bot" + cfg.token + "/sendPhoto?chat_id="+chatId.toString())
+                .url(httpBuilder.build())
                 .post(requestBody)
                 .build();
         httpClient.newCall(request)
