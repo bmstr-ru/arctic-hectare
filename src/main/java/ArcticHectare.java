@@ -4,8 +4,8 @@ import com.github.romankh3.image.comparison.model.ImageComparisonResult;
 import com.github.romankh3.image.comparison.model.ImageComparisonState;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.*;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.FluentWait;
@@ -36,9 +36,9 @@ public class ArcticHectare {
     private static final String REFERENCE_FILENAME = "reference.png";
     private static final String EXCEPTION_FILENAME = "exception.png";
 
-    private final ChromeDriver driver;
+    private final FirefoxDriver driver;
     private final Actions actions;
-    private final Wait<ChromeDriver> wait;
+    private final Wait<FirefoxDriver> wait;
 
     private final Telegram telegram = new Telegram();
     private final Config.Gosuslugi gosuslugi = Config.get().gosuslugi;
@@ -49,9 +49,9 @@ public class ArcticHectare {
     private final File exceptionFile = new File(EXCEPTION_FILENAME);
 
     public ArcticHectare() {
-        ChromeOptions options = new ChromeOptions();
+        FirefoxOptions options = new FirefoxOptions();
         options.addArguments("--headless", "--disable-gpu", "--no-sandbox", "--disable-extensions", "--window-size=1920,1200");
-        this.driver = new ChromeDriver(options);
+        this.driver = new FirefoxDriver(options);
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         this.actions = new Actions(driver);
         this.wait = new FluentWait<>(driver)
@@ -106,7 +106,7 @@ public class ArcticHectare {
             log.info("Zoom 15 times");
             WebElement element = driver.findElement(By.className("zoom-control__zoom-in"));
             IntStream.range(0, 15).forEach(i -> {
-                sleep(60);
+                sleep(1);
                 element.click();
             });
 
@@ -123,8 +123,6 @@ public class ArcticHectare {
             File file = driver.getScreenshotAs(OutputType.FILE);
 
             log.info("Wrap up");
-            driver.close();
-            driver.quit();
 
             telegram.debug(file);
             if (!referenceFile.exists()) {
@@ -147,6 +145,9 @@ public class ArcticHectare {
             if (file.renameTo(exceptionFile)) {
                 telegram.debug(exceptionFile);
             }
+        } finally {
+            driver.close();
+            driver.quit();
         }
     }
 
