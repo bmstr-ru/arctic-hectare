@@ -15,6 +15,9 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -32,9 +35,7 @@ public class ArcticHectare {
         System.exit(0);
     }
 
-    private static final String SCREENSHOT_FILENAME = "screenshot.png";
-    private static final String REFERENCE_FILENAME = "reference.png";
-    private static final String EXCEPTION_FILENAME = "exception.png";
+    private static final Path REFERENCES_FOLDER = Paths.get("references");
 
     private final FirefoxDriver driver;
     private final Actions actions;
@@ -43,10 +44,6 @@ public class ArcticHectare {
     private final Telegram telegram = new Telegram();
     private final Config.Gosuslugi gosuslugi = Config.get().gosuslugi;
     private final Config.Coordinates coordinates = Config.get().coordinates;
-
-    private final File referenceFile = new File(REFERENCE_FILENAME);
-    private final File screenshotFile = new File(SCREENSHOT_FILENAME);
-    private final File exceptionFile = new File(EXCEPTION_FILENAME);
 
     public ArcticHectare() {
         FirefoxOptions options = new FirefoxOptions();
@@ -125,26 +122,32 @@ public class ArcticHectare {
             log.info("Wrap up");
 
             telegram.debug(file);
-            if (!referenceFile.exists()) {
-                file.renameTo(referenceFile);
-            } else {
-                file.renameTo(screenshotFile);
-                BufferedImage expectedImage = ImageComparisonUtil.readImageFromResources(REFERENCE_FILENAME);
-                BufferedImage actualImage = ImageComparisonUtil.readImageFromResources(SCREENSHOT_FILENAME);
-                ImageComparisonResult comparisonResult = new ImageComparison(expectedImage, actualImage).compareImages();
+            if (!Files.exists(REFERENCES_FOLDER)) {
+                REFERENCES_FOLDER.toFile().mkdirs();
+            } else if (!Files.isDirectory(REFERENCES_FOLDER)) {
+                REFERENCES_FOLDER.toFile().delete();
+                REFERENCES_FOLDER.toFile().mkdirs();
+            }
 
-                if (comparisonResult.getImageComparisonState() != ImageComparisonState.MATCH) {
-                    telegram.notify(screenshotFile);
-                }
+            BufferedImage actualImage = ImageComparisonUtil.readImageFromResources(file.getAbsolutePath());
+            boolean matched = Files.list(REFERENCES_FOLDER)
+                    .filter(Files::isRegularFile)
+                    .filter(f -> f.toString().endsWith(".png"))
+                    .anyMatch(f -> {
+                        BufferedImage expectedImage = ImageComparisonUtil.readImageFromResources(f.toFile().getAbsolutePath());
+                        ImageComparisonResult comparison = new ImageComparison(expectedImage, actualImage).compareImages();
+                        return comparison.getImageComparisonState() == ImageComparisonState.MATCH;
+                    });
+
+            if (!matched) {
+                telegram.notify(file);
+                file.renameTo(REFERENCES_FOLDER.resolve(file.getName()).toFile());
             }
 //            telegram.debug("Job finished");
         } catch (Exception e) {
             log.warn("Error", e);
             telegram.debug("Error: " + e.getMessage());
-            File file = driver.getScreenshotAs(OutputType.FILE);
-            if (file.renameTo(exceptionFile)) {
-                telegram.debug(exceptionFile);
-            }
+            telegram.debug(driver.getScreenshotAs(OutputType.FILE));
         } finally {
             driver.close();
             driver.quit();
