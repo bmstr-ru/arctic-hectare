@@ -1,4 +1,8 @@
-import okhttp3.*;
+import okhttp3.HttpUrl;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,7 +28,7 @@ public class Telegram {
 
     private void sendPhoto(File file, Long chatId) throws IOException {
         HttpUrl.Builder httpBuilder = HttpUrl.parse("https://api.telegram.org/bot" + cfg.token + "/sendPhoto").newBuilder();
-        httpBuilder.addQueryParameter("chat_id", cfg.debugChatId.toString());
+        httpBuilder.addQueryParameter("chat_id", chatId.toString());
         httpBuilder.addQueryParameter("caption", file.getName());
 
         RequestBody requestBody = new MultipartBody.Builder()
