@@ -13,8 +13,11 @@ import org.openqa.selenium.support.ui.Wait;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -154,7 +157,10 @@ public class ArcticHectare {
 //            telegram.debug("Job finished");
         } catch (Exception e) {
             log.warn("Error", e);
-            telegram.debug("Error: " + e.getMessage());
+            var baos = new ByteArrayOutputStream();
+            var writer = new PrintStream(baos, true);
+            e.printStackTrace(writer);
+            telegram.debug(baos.toString());
             telegram.debug(driver.getScreenshotAs(OutputType.FILE));
         } finally {
             driver.close();
