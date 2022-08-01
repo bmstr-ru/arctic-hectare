@@ -116,6 +116,14 @@ public class ArcticHectare {
                     .perform();
             sleep(10);
 
+            driver.findElement(By.className("click-info-popup__results-body"))
+                    .findElements(By.className("click-info-popup__item-header"))
+                    .stream().filter(el -> el.getText().endsWith(Config.get().area.id))
+                    .findFirst()
+                    .ifPresent(el -> {
+                        actions.moveToElement(el).click().perform();
+                    });
+
             log.info("Taking screenshot");
             File file = driver.getScreenshotAs(OutputType.FILE);
 

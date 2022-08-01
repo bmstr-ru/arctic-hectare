@@ -12,6 +12,7 @@ public class Config {
     public Telegram telegram;
     public Coordinates coordinates;
     public Gosuslugi gosuslugi;
+    public Area area;
 
     private static Config INSTANCE;
     private static final String CONFIG_FILE = "config.yaml";
@@ -55,5 +56,9 @@ public class Config {
     public static class Question {
         public String question;
         public String answer;
+    }
+
+    public static class Area {
+        public String id;
     }
 }
