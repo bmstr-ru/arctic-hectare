@@ -17,7 +17,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,7 +49,7 @@ public class ArcticHectare {
 
     public ArcticHectare() {
         FirefoxOptions options = new FirefoxOptions();
-        options.addArguments("--headless", "--disable-gpu", "--no-sandbox", "--disable-extensions", "--window-size=1920,1200");
+        options.addArguments("--disable-gpu", "--disable-extensions", "--width=1920", "--height=1500");
         this.driver = new FirefoxDriver(options);
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         this.actions = new Actions(driver);
@@ -65,8 +64,6 @@ public class ArcticHectare {
         try {
             log.info("Open main page");
             driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/login");
-            log.info("Maximize window");
-            driver.manage().window().maximize();
             log.info("Enter credentials");
             waitAndClick(By.id("login")).sendKeys(gosuslugi.username);
             waitAndClick(By.id("password")).sendKeys(gosuslugi.password);
@@ -126,6 +123,7 @@ public class ArcticHectare {
                     .ifPresent(el -> {
                         actions.moveToElement(el).click().perform();
                     });
+            sleep(10);
 
             log.info("Taking screenshot");
             File file = driver.getScreenshotAs(OutputType.FILE);
