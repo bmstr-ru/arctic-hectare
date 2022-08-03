@@ -49,7 +49,7 @@ public class ArcticHectare {
 
     public ArcticHectare() {
         FirefoxOptions options = new FirefoxOptions();
-        options.addArguments("--headless", "--disable-gpu", "--disable-extensions", "--width=1920", "--height=1500");
+        options.addArguments("--headless", "--disable-gpu", "--disable-extensions", "--width=1920", "--height=1400");
         this.driver = new FirefoxDriver(options);
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         this.actions = new Actions(driver);
