@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -30,7 +31,11 @@ public class ArcticHectare {
 
     public static void main(String[] args) {
         try {
-            new ArcticHectare().operate();
+            if (Arrays.asList(args).contains("local")) {
+                new ArcticHectare(false).operate();
+            } else {
+                new ArcticHectare(true).operate();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -47,9 +52,13 @@ public class ArcticHectare {
     private final Config.Gosuslugi gosuslugi = Config.get().gosuslugi;
     private final Config.Coordinates coordinates = Config.get().coordinates;
 
-    public ArcticHectare() {
+    public ArcticHectare(boolean headless) {
         FirefoxOptions options = new FirefoxOptions();
-        options.addArguments("--headless", "--disable-gpu", "--disable-extensions", "--width=1200", "--height=1200");
+        if (headless) {
+            options.addArguments("--headless", "--disable-gpu", "--disable-extensions", "--width=1200", "--height=1200");
+        } else {
+            options.addArguments("--disable-gpu", "--disable-extensions", "--width=1200", "--height=1200");
+        }
         this.driver = new FirefoxDriver(options);
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         this.actions = new Actions(driver);
@@ -68,7 +77,7 @@ public class ArcticHectare {
             waitAndClick(By.id("login")).sendKeys(gosuslugi.username);
             waitAndClick(By.id("password")).sendKeys(gosuslugi.password);
             log.info("Click login");
-            waitAndClick(By.id("loginByPwdButton"));
+            waitAndClick(By.className("plain-button"));
 
             if (!handleGosuslugiSuspection()) {
                 driver.close();
@@ -168,9 +177,10 @@ public class ArcticHectare {
 
     private WebElement waitAndClick(By locator) {
         wait(locator);
-        WebElement element = driver.findElement(locator);
-        element.click();
-        return element;
+        return driver.findElements(locator).stream()
+                .peek(WebElement::click)
+                .findFirst()
+                .orElse(null);
     }
 
     private void wait(By locator) {
