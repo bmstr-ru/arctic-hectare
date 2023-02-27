@@ -3,7 +3,11 @@ import com.github.romankh3.image.comparison.ImageComparisonUtil;
 import com.github.romankh3.image.comparison.model.ImageComparisonResult;
 import com.github.romankh3.image.comparison.model.ImageComparisonState;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.interactions.Actions;
@@ -13,10 +17,8 @@ import org.openqa.selenium.support.ui.Wait;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,6 +53,7 @@ public class ArcticHectare {
     private final Telegram telegram = new Telegram();
     private final Config.Gosuslugi gosuslugi = Config.get().gosuslugi;
     private final Config.Coordinates coordinates = Config.get().coordinates;
+    private String lastOperation;
 
     public ArcticHectare(boolean headless) {
         FirefoxOptions options = new FirefoxOptions();
@@ -68,111 +71,132 @@ public class ArcticHectare {
     }
 
     public void operate() throws IOException {
-//        telegram.debug("Job started");
-
         try {
-            log.info("Open main page");
-            driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/login");
-            log.info("Enter credentials");
-            waitAndClick(By.id("login")).sendKeys(gosuslugi.username);
-            waitAndClick(By.id("password")).sendKeys(gosuslugi.password);
-            log.info("Click login");
-            waitAndClick(By.className("plain-button"));
-
-            if (!handleGosuslugiSuspection()) {
-                driver.close();
-                driver.quit();
+            openMainPage();
+            if (loginGosuslugi()) {
                 return;
             }
-
-            wait(By.className("cabinet__icon-myprofile-svg"));
-
-            log.info("Open arctic map");
-            driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/arctic-map");
-
-            log.info("Enter coordinates");
-            waitAndClick(By.className("coordinate-finder-control__coordinate-finder-control"));
-
-            wait(By.className("coordinate-finder-control__coords"));
-            List<WebElement> coords = driver.findElements(By.className("coordinate-finder-control__coords"));
-
-            log.info("...latitude");
-            coords.get(0).click();
-            coords.get(0).findElement(By.tagName("input")).sendKeys(coordinates.latitude);
-            log.info("...longtitude");
-            coords.get(1).click();
-            coords.get(1).findElement(By.tagName("input")).sendKeys(coordinates.longtitude);
-
-            sleep(1);
-            log.info("Close coordinates window");
-            waitAndClick(By.className("coordinate-finder-control__confirm"));
-            sleep(5);
-            waitAndClick(By.className("shared__btn-close"));
-            sleep(1);
-            log.info("Zoom 15 times");
-            WebElement element = driver.findElement(By.className("zoom-control__zoom-in"));
-            IntStream.range(0, 15).forEach(i -> {
-                sleep(1);
-                element.click();
-            });
-
-            log.info("Sleeping a minute");
-            sleep(60);
-
-            log.info("Click on element");
-            actions.moveToElement(driver.findElement(By.className("ol-layer")))
-                    .click()
-                    .perform();
-            sleep(10);
-
-            driver.findElement(By.className("click-info-popup__results-body"))
-                    .findElements(By.className("click-info-popup__item-header"))
-                    .stream().filter(el -> el.getText().endsWith(Config.get().area.id))
-                    .findFirst()
-                    .ifPresent(el -> {
-                        actions.moveToElement(el).click().perform();
-                    });
-            sleep(10);
-
-            log.info("Taking screenshot");
-            File file = driver.getScreenshotAs(OutputType.FILE);
-
-            log.info("Wrap up");
-
-            telegram.debug(file);
-            if (!Files.exists(REFERENCES_FOLDER)) {
-                REFERENCES_FOLDER.toFile().mkdirs();
-            } else if (!Files.isDirectory(REFERENCES_FOLDER)) {
-                REFERENCES_FOLDER.toFile().delete();
-                REFERENCES_FOLDER.toFile().mkdirs();
-            }
-
-            BufferedImage actualImage = ImageComparisonUtil.readImageFromResources(file.getAbsolutePath());
-            boolean matched = Files.list(REFERENCES_FOLDER)
-                    .filter(Files::isRegularFile)
-                    .filter(f -> f.toString().endsWith(".png"))
-                    .anyMatch(f -> {
-                        BufferedImage expectedImage = ImageComparisonUtil.readImageFromResources(f.toFile().getAbsolutePath());
-                        ImageComparisonResult comparison = new ImageComparison(expectedImage, actualImage).compareImages();
-                        return comparison.getImageComparisonState() == ImageComparisonState.MATCH;
-                    });
-
-            if (!matched) {
-                telegram.notify(file);
-                file.renameTo(REFERENCES_FOLDER.resolve(file.getName()).toFile());
-            }
-//            telegram.debug("Job finished");
+            openMap();
+            navigateAndZoom();
+            File file = takeScreenshot();
+            compareWithReferences(file);
         } catch (Exception e) {
-            log.warn("Error", e);
-            var baos = new ByteArrayOutputStream();
-            var writer = new PrintStream(baos, true);
-            e.printStackTrace(writer);
-            telegram.debug(baos.toString());
-            telegram.debug(driver.getScreenshotAs(OutputType.FILE));
+            warnNotify();
         } finally {
             driver.close();
             driver.quit();
         }
+    }
+
+    private void warnNotify() throws IOException {
+        telegram.debug(lastOperation);
+        telegram.debug(driver.getScreenshotAs(OutputType.FILE));
+    }
+
+    private void compareWithReferences(File file) throws IOException {
+        BufferedImage actualImage = ImageComparisonUtil.readImageFromResources(file.getAbsolutePath());
+        boolean matched = Files.list(REFERENCES_FOLDER)
+                .filter(Files::isRegularFile)
+                .filter(f -> f.toString().endsWith(".png"))
+                .anyMatch(f -> {
+                    BufferedImage expectedImage = ImageComparisonUtil.readImageFromResources(f.toFile().getAbsolutePath());
+                    ImageComparisonResult comparison = new ImageComparison(expectedImage, actualImage).compareImages();
+                    return comparison.getImageComparisonState() == ImageComparisonState.MATCH;
+                });
+
+        if (!matched) {
+            telegram.notify(file);
+            file.renameTo(REFERENCES_FOLDER.resolve(file.getName()).toFile());
+        }
+    }
+
+    private File takeScreenshot() throws IOException {
+        log("Taking screenshot");
+        File file = driver.getScreenshotAs(OutputType.FILE);
+
+        log("Wrap up");
+
+        telegram.debug(file);
+        if (!Files.exists(REFERENCES_FOLDER)) {
+            REFERENCES_FOLDER.toFile().mkdirs();
+        } else if (!Files.isDirectory(REFERENCES_FOLDER)) {
+            REFERENCES_FOLDER.toFile().delete();
+            REFERENCES_FOLDER.toFile().mkdirs();
+        }
+        return file;
+    }
+
+    private void navigateAndZoom() {
+        log("Enter coordinates");
+        waitAndClick(By.className("coordinate-finder-control__coordinate-finder-control"));
+
+        wait(By.className("coordinate-finder-control__coords"));
+        List<WebElement> coords = driver.findElements(By.className("coordinate-finder-control__coords"));
+
+        log("...latitude");
+        coords.get(0).click();
+        coords.get(0).findElement(By.tagName("input")).sendKeys(coordinates.latitude);
+        log("...longtitude");
+        coords.get(1).click();
+        coords.get(1).findElement(By.tagName("input")).sendKeys(coordinates.longtitude);
+
+        sleep(1);
+        log("Close coordinates window");
+        waitAndClick(By.className("coordinate-finder-control__confirm"));
+        sleep(5);
+        waitAndClick(By.className("shared__btn-close"));
+        sleep(1);
+        log("Zoom 15 times");
+        WebElement element = driver.findElement(By.className("zoom-control__zoom-in"));
+        IntStream.range(0, 15).forEach(i -> {
+            sleep(1);
+            element.click();
+        });
+
+        log("Sleeping a minute");
+        sleep(60);
+
+        log("Click on element");
+        actions.moveToElement(driver.findElement(By.className("ol-layer")))
+                .click()
+                .perform();
+        sleep(10);
+
+        driver.findElement(By.className("click-info-popup__results-body"))
+                .findElements(By.className("click-info-popup__item-header"))
+                .stream().filter(el -> el.getText().endsWith(Config.get().area.id))
+                .findFirst()
+                .ifPresent(el -> {
+                    actions.moveToElement(el).click().perform();
+                });
+        sleep(10);
+    }
+
+    private void openMap() {
+        log("Open arctic map");
+        driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/arctic-map");
+    }
+
+    private boolean loginGosuslugi() {
+        log("Enter credentials");
+        waitAndClick(By.id("login")).sendKeys(gosuslugi.username);
+        waitAndClick(By.id("password")).sendKeys(gosuslugi.password);
+        log("Click login");
+        waitAndClick(By.className("plain-button"));
+
+        if (!handleGosuslugiSuspection()) {
+            driver.close();
+            driver.quit();
+            return true;
+        }
+
+        wait(By.className("cabinet__icon-myprofile-svg"));
+        return false;
+    }
+
+    private void openMainPage() {
+        log("Open main page");
+        driver.navigate().to("https://xn--80aaggvgieoeoa2bo7l.xn--p1ai/default/login");
     }
 
     private WebElement waitAndClick(By locator) {
@@ -188,17 +212,17 @@ public class ArcticHectare {
     }
 
     private boolean handleGosuslugiSuspection() {
-        log.info("Handle gosuslugi suspection");
+        log("Handle gosuslugi suspection");
         waitPageLoaded();
         try {
-            String question = driver.findElement(By.id("question")).getText();
-            WebElement answer = driver.findElement(By.id("answer"));
+            String question = driver.findElement(By.className("anomaly__plain-text")).getText();
+            WebElement answer = driver.findElement(By.className("input__field"));
             Optional<Config.Question> qanda = Config.get().gosuslugi.quest.stream().filter(q -> question.equals(q.question)).findFirst();
             if (qanda.isPresent()) {
                 answer.sendKeys(qanda.get().answer);
                 File file = driver.getScreenshotAs(OutputType.FILE);
 
-                waitAndClick(By.id("button-reqinfo-submit"));
+                waitAndClick(By.className("anomaly__button"));
                 try {
                     wait(By.className("cabinet__icon-myprofile-svg"));
                     return true;
@@ -212,7 +236,7 @@ public class ArcticHectare {
                 return false;
             }
         } catch (NoSuchElementException e) {
-            log.info("Seems we are signed in successfully");
+            log("Seems we are signed in successfully");
             return true;
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -231,5 +255,9 @@ public class ArcticHectare {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+    private void log(String message) {
+        lastOperation = message;
+        log.info(lastOperation);
     }
 }
