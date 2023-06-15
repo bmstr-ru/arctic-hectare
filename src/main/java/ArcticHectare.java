@@ -189,6 +189,7 @@ public class ArcticHectare {
             driver.quit();
             return true;
         }
+        handle2fa();
 
         wait(By.className("cabinet__icon-myprofile-svg"));
         return false;
@@ -241,6 +242,17 @@ public class ArcticHectare {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void handle2fa() {
+        log("Handle gosuslugi 2fa notice");
+        waitPageLoaded();
+        String pageText = driver.findElement(By.tagName("body")).getText();
+        if (!pageText.contains("Подключите вход с подтверждением")) {
+            log("2FA handle is not required");
+            return;
+        }
+        waitAndClick(By.className("plain-button-inline"));
     }
 
     private void waitPageLoaded() {
