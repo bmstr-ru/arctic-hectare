@@ -247,8 +247,9 @@ public class ArcticHectare {
     private void handle2fa() {
         log("Handle gosuslugi 2fa notice");
         waitPageLoaded();
-        String pageText = driver.findElement(By.tagName("body")).getText();
-        if (!pageText.contains("Подключите вход с подтверждением")) {
+
+        String currentUrl = driver.getCurrentUrl();
+        if (!"https://esia.gosuslugi.ru/login/".equals(currentUrl)) {
             log("2FA handle is not required");
             return;
         }
